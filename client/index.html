@@ -1,13 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
-    <script type="text/babel" >
+    <script src="/socket.io/socket.io.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.34/browser.min.js"></script>
+	<script type="text/babel">  
         "use strict";
     
+        let canvas;
+        let ctx;
+        let sendBufferCanvas;
+        let sendBufferCtx;
+
+        //our websocket connection
+        let socket;
+
+        let color;
+
+        const getMouse = (e) =>{
+            var mouse = {}
+            mouse.x = e.pageX - e.target.offsetLeft;
+            mouse.y = e.pageY - e.target.offsetTop;
+            return mouse;
+        };
+
+        const setup = (e) => {
+          var mouse = getMouse(e);
+          
+          sendBufferCanvas = document.createElement("canvas");
+          sendBufferCanvas.height = 200;
+          sendBufferCanvas.width = 200;
+          sendBufferCtx = sendBufferCanvas.getContext("2d");
+          
+          // We will create a square of the user's color at the mouse position
+          ctx.fillStyle = color;
+          ctx.fillRect(mouse.x - 100, mouse.y - 100, 200, 200); // Draw to screen
+          
+          sendBufferCtx.fillStyle = color;
+          sendBufferCtx.fillRect(0, 0, 200, 200); // Draw to hidden buffer
+          
+          const data = {
+            x: mouse.x - 100,
+            y: mouse.y - 100,
+            height: 200,
+            width: 200,
+            imgData: sendBufferCanvas.toDataURL(), // Get pixel data from canvas
+          };
+          
+          socket.emit("draw", data);
+        };
+        
+        const handleMessage = (data) => {
+          if(data) {
+            let image = new Image();
+          
+            image.onload = () => {
+              ctx.save();
+              ctx.globalCompositeOperation = "source-over"; // Default
+              ctx.drawImage(image, data.x, data.y, data.width, data.height);
+              ctx.restore();
+            };
+
+            image.src = data.imgData;
+            
+            socket.emit("saveImage", image);
+          }
+        };
+
+        const init = () => {
+          canvas = document.querySelector("#canvas");
+          canvas.onmousedown = setup;
+          ctx = canvas.getContext("2d");
+          color = `rgb(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)})`;
+
+          socket = io.connect();
+            
+          socket.on('draw', handleMessage);
+        };
+
+      window.onload = init;
     </script>
 </head>
 <body>
-
+    <canvas id="canvas" height="500" width="500" style="border: 1px solid black;">Please use an HTML 5 browser</canvas>
+  <p>Click on the canvas to create a square!</p>
 </body>
 </html>
